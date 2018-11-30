@@ -89,8 +89,8 @@ void houghCircles(Mat thresh_mag) {
     for (int j = 0; j < thresh_mag.cols; j++) {
       if (thresh_mag.at<uchar>(i, j) == 255) {
         for (int r = min_radius; r <= max_radius; r++) {
-          double a = 0;
-          double b = 0;
+          int a = 0;
+          int b = 0;
           for (int theta = 0; theta <= 360; theta++) {
             a = i - (r * cos(theta * M_PI / 180));
             b = j - (r * sin(theta * M_PI / 180));
