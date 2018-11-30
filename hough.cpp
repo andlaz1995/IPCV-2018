@@ -95,7 +95,7 @@ void houghCircles(Mat thresh_mag) {
             a = i - (r * cos(theta * M_PI / 180));
             b = j - (r * sin(theta * M_PI / 180));
             if(((0 <= a) && (a < dim1)) && ((0 <= b) && (b < dim2))) {
-              accumulator[a, b, r] += 1;
+              accumulator[a][b][r] += 1;
             }
           }
         }
@@ -107,7 +107,7 @@ void houghCircles(Mat thresh_mag) {
   for (int a = 0; a < thresh_mag.rows; a++) {
     for (int b = 0; b < thresh_mag.cols; b++) {
       for (int r = min_radius; r < max_radius; r++) {
-        total[a][b] = total[a][b] + accumulator[a, b, r];
+        total[a][b] += accumulator[a][b][r];
       }
     }
   }
@@ -148,7 +148,7 @@ int main( int argc, const char** argv )
   imshow("threshold", thresh_mag);
   waitKey(0);
 
-  // houghCircles(magnitude);
+  houghCircles(thresh_mag);
 
 	violaJonesDetector(src_gray, viola_dartboards);
 
