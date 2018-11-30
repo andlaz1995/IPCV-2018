@@ -17,13 +17,13 @@ String cascade_name = "./dartcascade/cascade.xml";
 CascadeClassifier cascade;
 
 
-void convertGrey(Mat src, Mat src_gray) {
+void convertGrey(Mat src, Mat &src_gray) {
   // Prepare Image by turning it into Grayscale and normalising lighting
   cvtColor( src, src_gray, CV_BGR2GRAY );
   equalizeHist(src_gray, src_gray);
 }
 
-void convolve (Mat input, Mat kernel, Mat output) {
+void convolve (Mat input, Mat kernel, Mat &output) {
     output.create(input.size(), input.type());
 
     // pad input to prevent border effects
@@ -63,19 +63,19 @@ void convolve (Mat input, Mat kernel, Mat output) {
     // scale the convolution by a ratio of max-min
     double min = 999999;
     double max = 0;
-    for ( int i = 0; i < grey.rows; i++ ) {
-        for( int j = 0; j < grey.cols; j++ ) {
-            if(unscaledOutput[i][j] > tempMax) {
+    for ( int i = 0; i < input.rows; i++ ) {
+        for( int j = 0; j < input.cols; j++ ) {
+            if(unscaledOutput[i][j] > max) {
                 max = unscaledOutput[i][j];
             }
-            if(unscaledOutput[i][j] < tempMin) {
+            if(unscaledOutput[i][j] < min) {
                 min = unscaledOutput[i][j];
             }
         }
     }
 
-    for ( int i = 0; i < grey.rows; i++ ) {
-        for( int j = 0; j < grey.cols; j++ ) {
+    for ( int i = 0; i < input.rows; i++ ) {
+        for( int j = 0; j < input.cols; j++ ) {
             output.at<uchar>(i, j) = (255)/(max-min)*(unscaledOutput[i][j]);
         }
     }
@@ -83,22 +83,55 @@ void convolve (Mat input, Mat kernel, Mat output) {
 
 
 // TODO
-void sobelEdges(Mat input) {
+void sobelEdges(Mat input, Mat &magnitude) {
     cv::Mat gradientX, gradientY;
     gradientX.create(input.size(), input.type());
     gradientY.create(input.size(), input.type());
 
+    magnitude.create(input.size(), input.type());
+
     // values are flipped 180 because the convolve function is actually correlation??
     float xvalues[] = {1,0,-1,2,0,-2,1,0,-1};
-    cv::Mat kernelX(3,3, CV_32F, dataX);
+    cv::Mat kernelX(3,3, CV_32F, xvalues);
 
     float yvalues[] = {1,2,1,0,0,0,-1,-2,-1};
-    cv::Mat kernelY(3,3, CV_32F, dataY);
+    cv::Mat kernelY(3,3, CV_32F, yvalues);
 
-    //find dx and dy
+    // find dx and dy
     convolve(input, kernelX, gradientX);
     convolve(input, kernelY, gradientY);
 
+    // imshow("gradx", gradientX);
+    // imshow("grady", gradientY);
+
+    // calculate the magnitude
+    double unscaledMag[input.rows][input.cols];
+
+    for (int i = 0; i < input.rows; i++) {
+      for (int j = 0; j < input.cols; j++) {
+        unscaledMag[i][j] = sqrt( (gradientX.at<uchar>(i, j) * gradientX.at<uchar>(i, j)) + (gradientY.at<uchar>(i, j) * gradientY.at<uchar>(i, j)) );
+      }
+    }
+
+    // scale the magnitude
+    double min = 999999;
+    double max = 0;
+    for ( int i = 0; i < input.rows; i++ ) {
+        for( int j = 0; j < input.cols; j++ ) {
+            if(unscaledMag[i][j] > max) {
+                max = unscaledMag[i][j];
+            }
+            if(unscaledMag[i][j] < min) {
+                min = unscaledMag[i][j];
+            }
+        }
+    }
+
+    for ( int i = 0; i < input.rows; i++ ) {
+        for( int j = 0; j < input.cols; j++ ) {
+            magnitude.at<uchar>(i, j) = (255)/(max-min)*(unscaledMag[i][j]);
+        }
+    }
     return;
 }
 
@@ -128,7 +161,7 @@ int main( int argc, const char** argv )
 {
    // Read Input Image
 	Mat frame = imread(argv[1], CV_LOAD_IMAGE_COLOR);
-  Mat src_gray;
+  cv::Mat src_gray, magnitude;
   std::vector<Rect> viola_dartboards;
 
   // Load the Strong Classifier in a structure called `Cascade'
@@ -136,11 +169,14 @@ int main( int argc, const char** argv )
 
   convertGrey(frame, src_gray);
 
-  sobelEdges();
+  sobelEdges(src_gray, magnitude);
+  namedWindow( "Display Image", CV_WINDOW_AUTOSIZE );
+  imshow("gradient magnitude", magnitude);
+  waitKey(0);
 
   houghCircles();
 
-	violaJonesDetector(frame, viola_dartboards);
+	violaJonesDetector(src_gray, viola_dartboards);
 
   combineDetections();
 

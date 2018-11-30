@@ -6,8 +6,8 @@ darts: darts.cpp
 face: face.cpp
 	g++ face.cpp `pkg-config --libs opencv` `pkg-config --cflags opencv`
 
-sobel: sobel.cpp
-	g++ sobel.cpp `pkg-config --libs opencv` `pkg-config --cflags opencv`
+hough: hough.cpp
+	g++ hough.cpp `pkg-config --libs opencv` `pkg-config --cflags opencv`
 
 clean:
 	rm -f a.out
