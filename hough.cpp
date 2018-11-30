@@ -84,13 +84,13 @@ void houghCircles(Mat thresh_mag) {
       }
     }
   }
-
+  //from here
+  int a;
+  int b;
   for (int i = 0; i < thresh_mag.rows; i++) {
     for (int j = 0; j < thresh_mag.cols; j++) {
       if (thresh_mag.at<uchar>(i, j) == 255) {
         for (int r = min_radius; r <= max_radius; r++) {
-          int a = 0;
-          int b = 0;
           for (int theta = 0; theta <= 360; theta++) {
             a = i - (r * cos(theta * M_PI / 180));
             b = j - (r * sin(theta * M_PI / 180));
@@ -101,7 +101,7 @@ void houghCircles(Mat thresh_mag) {
         }
       }
     }
-  }
+  }// somewhere in voting, segmentation fault core dumped.
 
   int total[dim1][dim2];
   for (int a = 0; a < thresh_mag.rows; a++) {
@@ -109,8 +109,20 @@ void houghCircles(Mat thresh_mag) {
       for (int r = min_radius; r < max_radius; r++) {
         total[a][b] += accumulator[a][b][r];
       }
+
     }
   }
+  /*Mat hough2D;      // use this instead of previous to be able to imshow
+  int rad_total;
+  for (int a = 0; a < thresh_mag.rows; a++) {
+    for (int b = 0; b < thresh_mag.cols; b++) {
+      int rad_total=0;
+      for (int r = min_radius; r < max_radius; r++) {
+        //rad_total += accumulator[a][b][r];
+      }
+      //hough2D.at<uchar>(a,b)=rad_total;
+    }
+  }*/
   return;
 }
 
