@@ -66,20 +66,26 @@ void houghCircles(Mat thresh_mag) {
   int max_radius = 120;
 
   // allocate memory for accumulator array
+  
   int dim1 = thresh_mag.rows;
   int dim2 = thresh_mag.cols;
   int dim3 = max_radius - min_radius;
-  int accumulator [dim1][dim2][dim3];
-  int *** accumulator = (int ***)malloc(dim1*sizeof(int**));
+  int sizes[3] = {dim1,dim2,dim3};
+  cv::Mat accumulator = cv::Mat(3, sizes, CV_32F, cv::Scalar(0));
+  //cv::Mat accumulator =cv::Mat::zeros(Size(dim1,dim2,dim3),CV_32F);
+  //int accumulator[dim1][dim2][dim3];
+  //cout << accumulator.at<float>(0,2,3);
+  //std::fill( accumulator, accumulator + sizeof( accumulator ), 0 );
   // initialise the 3d array with 0s
-  for (int i = 0; i< dim1; i++) {
+  /*for (int i = 0; i< dim1; i++) {
     for (int j = 0; j < dim2; j++) {
       for (int k = 0; k < dim3; k++) {
         accumulator[i][j][k] = 0;
       }
     }
-  }
+  }*/
   //from here
+  
   int a;
   int b;
   for (int i = 0; i < thresh_mag.rows; i++) {
@@ -90,30 +96,21 @@ void houghCircles(Mat thresh_mag) {
             a = i - (r * cos(theta * M_PI / 180));
             b = j - (r * sin(theta * M_PI / 180));
             if(((0 <= a) && (a < dim1)) && ((0 <= b) && (b < dim2))) {
-              accumulator[a][b][r] += 1;
+              accumulator.at<float>(a,b,r) += 1;
             }
           }
         }
       }
     }
   }// somewhere in voting, segmentation fault core dumped.
-  /*
-  int total[dim1][dim2];
-  for (int a = 0; a < thresh_mag.rows; a++) {
-    for (int b = 0; b < thresh_mag.cols; b++) {
-      for (int r = min_radius; r < max_radius; r++) {
-        total[a][b] += accumulator[a][b][r];
-      }
-
-    }
-  }*/
-  Mat hough2D;      // use this instead of previous to be able to imshow
+  
+  cv::Mat hough2D;      // use this instead of previous to be able to imshow
   int rad_total;
   for (int a = 0; a < thresh_mag.rows; a++) {
     for (int b = 0; b < thresh_mag.cols; b++) {
       rad_total=0;
       for (int r = min_radius; r < max_radius; r++) {
-        rad_total += accumulator[a][b][r];
+        rad_total += accumulator.at<float>(a,b,r);
       }
       hough2D.at<uchar>(a,b)=rad_total;
     }
@@ -152,8 +149,8 @@ int main( int argc, const char** argv )
 
   sobelEdges(src_gray, thresh_mag);
 
-  imshow("threshold", thresh_mag);
-  waitKey(0);
+  //imshow("threshold", thresh_mag);
+  //waitKey(0);
 
   houghCircles(thresh_mag);
 
@@ -168,117 +165,3 @@ int main( int argc, const char** argv )
 }
 
 
-/*
-void convolve (Mat input, Mat kernel, Mat &output) {
-    output.create(input.size(), input.type());
-
-    // pad input to prevent border effects
-    double unscaledOutput[input.rows][input.cols];
-    int kernelRadiusX = ( kernel.size[0] - 1 ) / 2;
-    int kernelRadiusY = ( kernel.size[1] - 1 ) / 2;
-
-    cv::Mat paddedInput;
-    cv::copyMakeBorder(input, paddedInput, kernelRadiusX, kernelRadiusX, kernelRadiusY, kernelRadiusY, cv::BORDER_REPLICATE);
-
-    // now we can do the convolution
-    for ( int i = 0; i < input.rows; i++ ) {
-        for( int j = 0; j < input.cols; j++ ) {
-            double sum = 0.0;
-
-            for( int m = -kernelRadiusX; m <= kernelRadiusX; m++ ) {
-                for( int n = -kernelRadiusY; n <= kernelRadiusY; n++ ) {
-                    // find the correct indices we are using
-                    int imagex = i + m + kernelRadiusX;
-                    int imagey = j + n + kernelRadiusY;
-                    int kernelx = m + kernelRadiusX;
-                    int kernely = n + kernelRadiusY;
-
-                    // get the values from the padded image and the kernel
-                    int imageval = ( int ) paddedInput.at<uchar>( imagex, imagey );
-                    double kernalval = kernel.at<double>( kernelx, kernely );
-
-                    // do the multiplication
-                    sum += imageval * kernalval;
-                }
-            }
-            // set the output value as the sum of the convolution
-            unscaledOutput[i][j] = sum;
-        }
-    }
-
-    // scale the convolution by a ratio of max-min
-    double min = 999999;
-    double max = 0;
-    for ( int i = 0; i < input.rows; i++ ) {
-        for( int j = 0; j < input.cols; j++ ) {
-            if(unscaledOutput[i][j] > max) {
-                max = unscaledOutput[i][j];
-            }
-            if(unscaledOutput[i][j] < min) {
-                min = unscaledOutput[i][j];
-            }
-        }
-    }
-
-    for ( int i = 0; i < input.rows; i++ ) {
-        for( int j = 0; j < input.cols; j++ ) {
-            output.at<uchar>(i, j) = (255)/(max-min)*(unscaledOutput[i][j] - max);
-        }
-    }
-}
-
-
-// TODO
-void sobelEdges(Mat input, Mat &magnitude) {
-    cv::Mat gradientX, gradientY;
-    gradientX.create(input.size(), input.type());
-    gradientY.create(input.size(), input.type());
-
-    magnitude.create(input.size(), input.type());
-
-    // values are flipped 180 because the convolve function is actually correlation??
-    float xvalues[] = {-1,0,1,-2,0,2,-1,0,1};
-    cv::Mat kernelX(3,3, CV_32F, xvalues);
-
-    float yvalues[] = {1,-2,-1,0,0,0,1,2,1};
-    cv::Mat kernelY(3,3, CV_32F, yvalues);
-
-    // find dx and dy
-    convolve(input, kernelX, gradientX);
-    convolve(input, kernelY, gradientY);
-
-    // imshow("gradx", gradientX);
-    // imshow("grady", gradientY);
-
-    // calculate the magnitude
-    double unscaledMag[input.rows][input.cols];
-
-    for (int i = 0; i < input.rows; i++) {
-      for (int j = 0; j < input.cols; j++) {
-        unscaledMag[i][j] = sqrt( (gradientX.at<uchar>(i, j) * gradientX.at<uchar>(i, j)) + (gradientY.at<uchar>(i, j) * gradientY.at<uchar>(i, j)) );
-      }
-    }
-
-    // scale the magnitude
-    double min = 999999;
-    double max = 0;
-    for ( int i = 0; i < input.rows; i++ ) {
-        for( int j = 0; j < input.cols; j++ ) {
-            if(unscaledMag[i][j] > max) {
-                max = unscaledMag[i][j];
-            }
-            if(unscaledMag[i][j] < min) {
-                min = unscaledMag[i][j];
-            }
-        }
-    }
-
-    for ( int i = 0; i < input.rows; i++ ) {
-        for( int j = 0; j < input.cols; j++ ) {
-            magnitude.at<uchar>(i, j) = (255)/(max-min)*(unscaledMag[i][j] - max);
-        }
-    }
-
-    return;
-}
-*/
