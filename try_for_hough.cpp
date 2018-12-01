@@ -57,35 +57,22 @@ void sobelEdges(Mat src_gray, Mat &thresh_mag) {
   addWeighted( abs_gradientX, 0.5, abs_gradientY, 0.5, 0, magnitude );
 
   // Create threshold from absolute image
-  thresh(magnitude, thresh_mag, 35); //good value for img 1
+  thresh(magnitude, thresh_mag, 180); //good value for img 1
 }
 
 // TODO
 void houghCircles(Mat thresh_mag) {
   int min_radius = 10;
   int max_radius = 120;
-
-  // allocate memory for accumulator array
   
   int dim1 = thresh_mag.rows;
   int dim2 = thresh_mag.cols;
   int dim3 = max_radius - min_radius;
+
   int sizes[3] = {dim1,dim2,dim3};
   cv::Mat accumulator = cv::Mat(3, sizes, CV_32F, cv::Scalar(0));
-  //cv::Mat accumulator =cv::Mat::zeros(Size(dim1,dim2,dim3),CV_32F);
-  //int accumulator[dim1][dim2][dim3];
-  //cout << accumulator.at<float>(0,2,3);
-  //std::fill( accumulator, accumulator + sizeof( accumulator ), 0 );
-  // initialise the 3d array with 0s
-  /*for (int i = 0; i< dim1; i++) {
-    for (int j = 0; j < dim2; j++) {
-      for (int k = 0; k < dim3; k++) {
-        accumulator[i][j][k] = 0;
-      }
-    }
-  }*/
-  //from here
-  
+
+ //VOTING  
   int a;
   int b;
   for (int i = 0; i < thresh_mag.rows; i++) {
@@ -102,10 +89,12 @@ void houghCircles(Mat thresh_mag) {
         }
       }
     }
-  }// somewhere in voting, segmentation fault core dumped.
-  
-  cv::Mat hough2D;      // use this instead of previous to be able to imshow
-  int rad_total;
+  }
+
+  //Creating the 2D space
+  Mat hough2D;
+  hough2D.create(thresh_mag.size(), thresh_mag.type());      // use this to create 2D space
+  float rad_total;
   for (int a = 0; a < thresh_mag.rows; a++) {
     for (int b = 0; b < thresh_mag.cols; b++) {
       rad_total=0;
@@ -115,7 +104,8 @@ void houghCircles(Mat thresh_mag) {
       hough2D.at<uchar>(a,b)=rad_total;
     }
   }
-  return;
+  imshow("hough2D",hough2D);
+  waitKey(0);
 }
 
 void violaJonesDetector(Mat src, vector<Rect> viola_dartboards) {
@@ -163,5 +153,3 @@ int main( int argc, const char** argv )
 
   return 0;
 }
-
-
