@@ -16,6 +16,16 @@ using namespace cv;
 String cascade_name = "./dartcascade/cascade.xml";
 CascadeClassifier cascade;
 
+void combineDetections(vector<Rect> viola_dartboards, int a, int b, int r,Mat &frame ) {
+    //Point center(a,b);
+    for (int detect=0; detect<viola_dartboards.size();detect++){
+      if ((viola_dartboards[detect].x<a && a<(viola_dartboards[detect].x + viola_dartboards[detect].width) && viola_dartboards[detect].y<b && b<(viola_dartboards[detect].y + viola_dartboards[detect].height)) && ((viola_dartboards[detect].width < (2.25*r) && viola_dartboards[detect].width > (1.75*r)))) {
+      rectangle(frame, Point(viola_dartboards[detect].x, viola_dartboards[detect].y), Point(viola_dartboards[detect].x +
+        viola_dartboards[detect].width, viola_dartboards[detect].y + viola_dartboards[detect].height), Scalar( 0, 255, 0 ), 2);
+      }
+    }
+  return;
+}
 
 void convertGrey(Mat src, Mat &src_gray) {
   // Prepare Image by turning it into Grayscale and normalising lighting
@@ -61,8 +71,8 @@ void sobelEdges(Mat src_gray, Mat &thresh_mag) {
 }
 
 // TODO
-void houghCircles(Mat thresh_mag) {
-  int min_radius = 30;
+void houghCircles(Mat thresh_mag,vector<Rect> viola_dartboards, Mat &frame) {
+  int min_radius = 20;
   int max_radius = 120;
 
   int dim1 = thresh_mag.rows;
@@ -76,6 +86,7 @@ void houghCircles(Mat thresh_mag) {
  //VOTING
   int a;
   int b;
+
   for (int i = 0; i < thresh_mag.rows; i++) {
     for (int j = 0; j < thresh_mag.cols; j++) {
       if (thresh_mag.at<uchar>(i, j) == 255) {
@@ -91,32 +102,33 @@ void houghCircles(Mat thresh_mag) {
       }
     }
   }
-  int imax,jmax,kmax;
   int max = 0;
   for (int i = 0; i< dim1; i++) {
         for (int j = 0; j < dim2; j++) {
           for (int k = 0; k < dim3; k++) {
             if (accumulator.at<float>(i,j,k) > max) {
               max = accumulator.at<float>(i,j,k);
-              imax = i;
-              jmax = j;
-              kmax = k;
             }
           }
         }
       }
 
-//  printf("%d\n",max);
+      //printf("%d\n",max);
 
-for(int a=0; a<dim1; a++){
-  for(int b=0; b<dim2;b++){
-    for(int r=0;r<dim3;r++){
-      if(accumulator.at<float>(a,b,r)>=35){
-        thresh_accumulator.at<float>(a,b,r) =accumulator.at<float>(a,b,r);
+  for(int a=0; a<dim1; a++){
+    for(int b=0; b<dim2;b++){
+      for(int r=0;r<dim3;r++){
+        if(accumulator.at<float>(a,b,r)>=(max*0.6)){
+          thresh_accumulator.at<float>(a,b,r) =accumulator.at<float>(a,b,r);
+          combineDetections(viola_dartboards,a,b,r, frame);
+        }
+
       }
     }
   }
-}
+
+  //imshow("blalb", frame);
+  //waitKey(0);
 
 
 
@@ -139,7 +151,7 @@ for(int a=0; a<dim1; a++){
   waitKey(0);
 }
 
-void violaJonesDetector(Mat src, vector<Rect> viola_dartboards) {
+void violaJonesDetector(Mat src, vector<Rect> &viola_dartboards) {
   // Perform Viola-Jones Object Detection
   cascade.detectMultiScale( src, viola_dartboards, 1.1, 1, 0|CV_HAAR_SCALE_IMAGE, Size(50, 50), Size(500,500) );
 
@@ -151,9 +163,7 @@ void violaJonesDetector(Mat src, vector<Rect> viola_dartboards) {
 }
 
 // TODO
-void combineDetections() {
-  return;
-}
+
 
 int main( int argc, const char** argv )
 {
@@ -172,12 +182,12 @@ int main( int argc, const char** argv )
 
   //imshow("threshold", thresh_mag);
   //waitKey(0);
-
-  houghCircles(thresh_mag);
-
   violaJonesDetector(src_gray, viola_dartboards);
+  houghCircles(thresh_mag,viola_dartboards,frame);
 
-  combineDetections();
+
+
+  //combineDetections();
 
   // 4. Save Result Image
   imwrite( "detected.jpg", frame );
