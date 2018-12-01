@@ -19,7 +19,8 @@ CascadeClassifier cascade;
 void combineDetections(vector<Rect> viola_dartboards, int a, int b, int r,Mat &frame ) {
     //Point center(a,b);
     for (int detect=0; detect<viola_dartboards.size();detect++){
-      if ((viola_dartboards[detect].x<a && a<(viola_dartboards[detect].x + viola_dartboards[detect].width) && viola_dartboards[detect].y<b && b<(viola_dartboards[detect].y + viola_dartboards[detect].height)) && ((viola_dartboards[detect].width < (2.25*r) && viola_dartboards[detect].width > (1.75*r)))) {
+      if ((viola_dartboards[detect].x<a && a<(viola_dartboards[detect].x + viola_dartboards[detect].width) && viola_dartboards[detect].y<b && b<(viola_dartboards[detect].y + viola_dartboards[detect].height)) && ((viola_dartboards[detect].width < (2.25*r) && viola_dartboards[detect].width > (1.75*r)))) 
+      {
       rectangle(frame, Point(viola_dartboards[detect].x, viola_dartboards[detect].y), Point(viola_dartboards[detect].x +
         viola_dartboards[detect].width, viola_dartboards[detect].y + viola_dartboards[detect].height), Scalar( 0, 255, 0 ), 2);
       }
@@ -72,7 +73,7 @@ void sobelEdges(Mat src_gray, Mat &thresh_mag) {
 
 // TODO
 void houghCircles(Mat thresh_mag,vector<Rect> viola_dartboards, Mat &frame) {
-  int min_radius = 20;
+  int min_radius = 50;
   int max_radius = 120;
 
   int dim1 = thresh_mag.rows;
@@ -90,10 +91,10 @@ void houghCircles(Mat thresh_mag,vector<Rect> viola_dartboards, Mat &frame) {
   for (int i = 0; i < thresh_mag.rows; i++) {
     for (int j = 0; j < thresh_mag.cols; j++) {
       if (thresh_mag.at<uchar>(i, j) == 255) {
-        for (int r = min_radius; r <= max_radius; r++) {
+        for (int r = 0; r < dim3; r++) {
           for (int theta = 0; theta <= 360; theta+=3) {
-            a = i - (r * cos(theta * M_PI / 180));
-            b = j - (r * sin(theta * M_PI / 180));
+            a = i - ((r+min_radius) * cos(theta * M_PI / 180));
+            b = j - ((r+min_radius) * sin(theta * M_PI / 180));
             if(((0 <= a) && (a < dim1)) && ((0 <= b) && (b < dim2))) {
               accumulator.at<float>(a,b,r) += 1;
             }
@@ -102,7 +103,9 @@ void houghCircles(Mat thresh_mag,vector<Rect> viola_dartboards, Mat &frame) {
       }
     }
   }
+
   int max = 0;
+  int max_r=0;
   for (int i = 0; i< dim1; i++) {
         for (int j = 0; j < dim2; j++) {
           for (int k = 0; k < dim3; k++) {
@@ -118,9 +121,9 @@ void houghCircles(Mat thresh_mag,vector<Rect> viola_dartboards, Mat &frame) {
   for(int a=0; a<dim1; a++){
     for(int b=0; b<dim2;b++){
       for(int r=0;r<dim3;r++){
-        if(accumulator.at<float>(a,b,r)>=(max*0.6)){
+        if(accumulator.at<float>(a,b,r)>=(max*0.48)){
           thresh_accumulator.at<float>(a,b,r) =accumulator.at<float>(a,b,r);
-          combineDetections(viola_dartboards,a,b,r, frame);
+          combineDetections(viola_dartboards,a,b,(r+min_radius), frame);
         }
 
       }
@@ -141,7 +144,7 @@ void houghCircles(Mat thresh_mag,vector<Rect> viola_dartboards, Mat &frame) {
   for (int a = 0; a < thresh_mag.rows; a++) {
     for (int b = 0; b < thresh_mag.cols; b++) {
       rad_total=0;
-      for (int r = min_radius; r < max_radius; r++) {
+      for (int r = 0; r < dim3; r++) {
         rad_total += thresh_accumulator.at<float>(a,b,r);
       }
       hough2D.at<uchar>(a,b)=rad_total;
