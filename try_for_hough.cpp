@@ -57,29 +57,30 @@ void sobelEdges(Mat src_gray, Mat &thresh_mag) {
   addWeighted( abs_gradientX, 0.5, abs_gradientY, 0.5, 0, magnitude );
 
   // Create threshold from absolute image
-  thresh(magnitude, thresh_mag, 180); //good value for img 1
+  thresh(magnitude, thresh_mag, 130); //good value for img 1
 }
 
 // TODO
 void houghCircles(Mat thresh_mag) {
-  int min_radius = 10;
+  int min_radius = 30;
   int max_radius = 120;
-  
+
   int dim1 = thresh_mag.rows;
   int dim2 = thresh_mag.cols;
   int dim3 = max_radius - min_radius;
 
   int sizes[3] = {dim1,dim2,dim3};
   cv::Mat accumulator = cv::Mat(3, sizes, CV_32F, cv::Scalar(0));
+  cv::Mat thresh_accumulator = cv::Mat(3, sizes, CV_32F, cv::Scalar(0));
 
- //VOTING  
+ //VOTING
   int a;
   int b;
   for (int i = 0; i < thresh_mag.rows; i++) {
     for (int j = 0; j < thresh_mag.cols; j++) {
       if (thresh_mag.at<uchar>(i, j) == 255) {
         for (int r = min_radius; r <= max_radius; r++) {
-          for (int theta = 0; theta <= 360; theta++) {
+          for (int theta = 0; theta <= 360; theta+=3) {
             a = i - (r * cos(theta * M_PI / 180));
             b = j - (r * sin(theta * M_PI / 180));
             if(((0 <= a) && (a < dim1)) && ((0 <= b) && (b < dim2))) {
@@ -90,6 +91,36 @@ void houghCircles(Mat thresh_mag) {
       }
     }
   }
+  int imax,jmax,kmax;
+  int max = 0;
+  for (int i = 0; i< dim1; i++) {
+        for (int j = 0; j < dim2; j++) {
+          for (int k = 0; k < dim3; k++) {
+            if (accumulator.at<float>(i,j,k) > max) {
+              max = accumulator.at<float>(i,j,k);
+              imax = i;
+              jmax = j;
+              kmax = k;
+            }
+          }
+        }
+      }
+
+//  printf("%d\n",max);
+
+for(int a=0; a<dim1; a++){
+  for(int b=0; b<dim2;b++){
+    for(int r=0;r<dim3;r++){
+      if(accumulator.at<float>(a,b,r)>=35){
+        thresh_accumulator.at<float>(a,b,r) =accumulator.at<float>(a,b,r);
+      }
+    }
+  }
+}
+
+
+
+
 
   //Creating the 2D space
   Mat hough2D;
@@ -99,7 +130,7 @@ void houghCircles(Mat thresh_mag) {
     for (int b = 0; b < thresh_mag.cols; b++) {
       rad_total=0;
       for (int r = min_radius; r < max_radius; r++) {
-        rad_total += accumulator.at<float>(a,b,r);
+        rad_total += thresh_accumulator.at<float>(a,b,r);
       }
       hough2D.at<uchar>(a,b)=rad_total;
     }
