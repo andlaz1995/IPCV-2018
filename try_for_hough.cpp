@@ -76,8 +76,8 @@ void houghCircles(Mat thresh_mag,vector<Rect> viola_dartboards, Mat &frame) {
   int min_radius = 50;
   int max_radius = 120;
 
-  int dim1 = thresh_mag.rows;
-  int dim2 = thresh_mag.cols;
+  int dim1 = thresh_mag.cols;
+  int dim2 = thresh_mag.rows;
   int dim3 = max_radius - min_radius;
 
   int sizes[3] = {dim1,dim2,dim3};
@@ -88,13 +88,13 @@ void houghCircles(Mat thresh_mag,vector<Rect> viola_dartboards, Mat &frame) {
   int a;
   int b;
 
-  for (int i = 0; i < thresh_mag.rows; i++) {
-    for (int j = 0; j < thresh_mag.cols; j++) {
-      if (thresh_mag.at<uchar>(i, j) == 255) {
+  for (int i = 0; i < dim2; i++) {
+    for (int j = 0; j < dim1; j++) {
+      if (thresh_mag.at<uchar>(i,j) == 255) {
         for (int r = 0; r < dim3; r++) {
           for (int theta = 0; theta <= 360; theta+=3) {
-            a = i - ((r+min_radius) * cos(theta * M_PI / 180));
-            b = j - ((r+min_radius) * sin(theta * M_PI / 180));
+            a = j - ((r+min_radius) * cos(theta * M_PI / 180));
+            b = i - ((r+min_radius) * sin(theta * M_PI / 180));
             if(((0 <= a) && (a < dim1)) && ((0 <= b) && (b < dim2))) {
               accumulator.at<float>(a,b,r) += 1;
             }
@@ -103,6 +103,7 @@ void houghCircles(Mat thresh_mag,vector<Rect> viola_dartboards, Mat &frame) {
       }
     }
   }
+
 
   int max = 0;
   int max_r=0;
@@ -139,15 +140,15 @@ void houghCircles(Mat thresh_mag,vector<Rect> viola_dartboards, Mat &frame) {
 
   //Creating the 2D space
   Mat hough2D;
-  hough2D.create(thresh_mag.size(), thresh_mag.type());      // use this to create 2D space
+  hough2D.create(dim2,dim1, thresh_mag.type());      // use this to create 2D space
   float rad_total;
-  for (int a = 0; a < thresh_mag.rows; a++) {
-    for (int b = 0; b < thresh_mag.cols; b++) {
+  for (int a = 0; a < dim1; a++) {
+    for (int b = 0; b < dim2; b++) {
       rad_total=0;
       for (int r = 0; r < dim3; r++) {
         rad_total += thresh_accumulator.at<float>(a,b,r);
       }
-      hough2D.at<uchar>(a,b)=rad_total;
+      hough2D.at<uchar>(b,a)=rad_total;
     }
   }
   imshow("hough2D",hough2D);
