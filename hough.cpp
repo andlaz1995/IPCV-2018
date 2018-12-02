@@ -16,6 +16,18 @@ using namespace cv;
 String cascade_name = "./dartcascade/cascade.xml";
 CascadeClassifier cascade;
 
+void combineDetections(vector<Rect> viola_dartboards, int a, int b, int r,Mat &frame ) {
+    //Point center(a,b);
+    for (int detect=0; detect<viola_dartboards.size();detect++){
+      bool circleInBox = (viola_dartboards[detect].x < a && a < (viola_dartboards[detect].x + viola_dartboards[detect].width) && viola_dartboards[detect].y < b && b < (viola_dartboards[detect].y + viola_dartboards[detect].height));
+      if (circleInBox || ((viola_dartboards[detect].width < (2*r) && viola_dartboards[detect].width > (1.75*r))))
+      {
+      rectangle(frame, Point(viola_dartboards[detect].x, viola_dartboards[detect].y), Point(viola_dartboards[detect].x +
+        viola_dartboards[detect].width, viola_dartboards[detect].y + viola_dartboards[detect].height), Scalar( 0, 255, 0 ), 2);
+      }
+    }
+  return;
+}
 
 void convertGrey(Mat src, Mat &src_gray) {
   // Prepare Image by turning it into Grayscale and normalising lighting
@@ -57,76 +69,92 @@ void sobelEdges(Mat src_gray, Mat &thresh_mag) {
   addWeighted( abs_gradientX, 0.5, abs_gradientY, 0.5, 0, magnitude );
 
   // Create threshold from absolute image
-  thresh(magnitude, thresh_mag, 35); //good value for img 1
+  thresh(magnitude, thresh_mag, 130); //good value for img 1
 }
 
 // TODO
-void houghCircles(Mat thresh_mag) {
-  int min_radius = 10;
+void houghCircles(Mat thresh_mag,vector<Rect> viola_dartboards, Mat &frame) {
+  int min_radius = 50;
   int max_radius = 120;
 
-  // allocate memory for accumulator array
   int dim1 = thresh_mag.rows;
   int dim2 = thresh_mag.cols;
   int dim3 = max_radius - min_radius;
-  int *** accumulator = (int ***)malloc(dim1*sizeof(int**));
-  for (int i = 0; i< dim1; i++) {
-    accumulator[i] = (int **) malloc(dim2*sizeof(int *));
-    for (int j = 0; j < dim2; j++) {
-        accumulator[i][j] = (int *)malloc(dim3*sizeof(int));
-    }
-  }
-  // initialise the 3d array with 0s
-  for (int i = 0; i< dim1; i++) {
-    for (int j = 0; j < dim2; j++) {
-      for (int k = 0; k < dim3; k++) {
-        accumulator[i][j][k] = 0;
-      }
-    }
-  }
-  //from here
+
+  int sizes[3] = {dim1,dim2,dim3};
+  cv::Mat accumulator = cv::Mat(3, sizes, CV_32F, cv::Scalar(0));
+  cv::Mat thresh_accumulator = cv::Mat(3, sizes, CV_32F, cv::Scalar(0));
+
+ //VOTING
   int a;
   int b;
+
   for (int i = 0; i < thresh_mag.rows; i++) {
     for (int j = 0; j < thresh_mag.cols; j++) {
       if (thresh_mag.at<uchar>(i, j) == 255) {
-        for (int r = min_radius; r <= max_radius; r++) {
-          for (int theta = 0; theta <= 360; theta++) {
-            a = i - (r * cos(theta * M_PI / 180));
-            b = j - (r * sin(theta * M_PI / 180));
+        for (int r = 0; r < dim3; r++) {
+          for (int theta = 0; theta <= 360; theta+=3) {
+            a = i - ((r+min_radius) * cos(theta * M_PI / 180));
+            b = j - ((r+min_radius) * sin(theta * M_PI / 180));
             if(((0 <= a) && (a < dim1)) && ((0 <= b) && (b < dim2))) {
-              accumulator[a][b][r] += 1;
+              accumulator.at<float>(a,b,r) += 1;
             }
           }
         }
       }
     }
-  }// somewhere in voting, segmentation fault core dumped.
+  }
 
-  int total[dim1][dim2];
-  for (int a = 0; a < thresh_mag.rows; a++) {
-    for (int b = 0; b < thresh_mag.cols; b++) {
-      for (int r = min_radius; r < max_radius; r++) {
-        total[a][b] += accumulator[a][b][r];
+  int max = 0;
+  int max_r=0;
+  for (int i = 0; i< dim1; i++) {
+        for (int j = 0; j < dim2; j++) {
+          for (int k = 0; k < dim3; k++) {
+            if (accumulator.at<float>(i,j,k) > max) {
+              max = accumulator.at<float>(i,j,k);
+            }
+          }
+        }
       }
 
+      //printf("%d\n",max);
+
+  for(int a=0; a<dim1; a++){
+    for(int b=0; b<dim2;b++){
+      for(int r=0;r<dim3;r++){
+        if(accumulator.at<float>(a,b,r)>=(max*0.85)){
+          thresh_accumulator.at<float>(a,b,r) =accumulator.at<float>(a,b,r);
+          combineDetections(viola_dartboards,a,b,(r+min_radius), frame);
+        }
+
+      }
     }
   }
-  /*Mat hough2D;      // use this instead of previous to be able to imshow
-  int rad_total;
+
+  //imshow("blalb", frame);
+  //waitKey(0);
+
+
+
+
+
+  //Creating the 2D space
+  Mat hough2D;
+  hough2D.create(thresh_mag.size(), thresh_mag.type());      // use this to create 2D space
+  float rad_total;
   for (int a = 0; a < thresh_mag.rows; a++) {
     for (int b = 0; b < thresh_mag.cols; b++) {
-      int rad_total=0;
-      for (int r = min_radius; r < max_radius; r++) {
-        //rad_total += accumulator[a][b][r];
+      rad_total=0;
+      for (int r = 0; r < dim3; r++) {
+        rad_total += thresh_accumulator.at<float>(a,b,r);
       }
-      //hough2D.at<uchar>(a,b)=rad_total;
+      hough2D.at<uchar>(a,b)=rad_total;
     }
-  }*/
-  return;
+  }
+  imshow("hough2D",hough2D);
 }
 
-void violaJonesDetector(Mat src, vector<Rect> viola_dartboards) {
+void violaJonesDetector(Mat src, vector<Rect> &viola_dartboards) {
   // Perform Viola-Jones Object Detection
   cascade.detectMultiScale( src, viola_dartboards, 1.1, 1, 0|CV_HAAR_SCALE_IMAGE, Size(50, 50), Size(500,500) );
 
@@ -138,14 +166,12 @@ void violaJonesDetector(Mat src, vector<Rect> viola_dartboards) {
 }
 
 // TODO
-void combineDetections() {
-  return;
-}
+
 
 int main( int argc, const char** argv )
 {
    // Read Input Image
-	Mat frame = imread(argv[1], CV_LOAD_IMAGE_COLOR);
+  Mat frame = imread(argv[1], CV_LOAD_IMAGE_COLOR);
   cv::Mat src_gray, thresh_mag;
   std::vector<Rect> viola_dartboards;
 
@@ -157,133 +183,18 @@ int main( int argc, const char** argv )
 
   sobelEdges(src_gray, thresh_mag);
 
-  imshow("threshold", thresh_mag);
+  //imshow("threshold", thresh_mag);
+  //waitKey(0);
+  violaJonesDetector(src_gray, viola_dartboards);
+  houghCircles(thresh_mag,viola_dartboards,frame);
+
+  imshow("detections", frame);
   waitKey(0);
 
-  houghCircles(thresh_mag);
+  //combineDetections();
 
-	violaJonesDetector(src_gray, viola_dartboards);
+  // 4. Save Result Image
+  imwrite( "detected.jpg", frame );
 
-  combineDetections();
-
-	// 4. Save Result Image
-	imwrite( "detected.jpg", frame );
-
-	return 0;
+  return 0;
 }
-
-
-/*
-void convolve (Mat input, Mat kernel, Mat &output) {
-    output.create(input.size(), input.type());
-
-    // pad input to prevent border effects
-    double unscaledOutput[input.rows][input.cols];
-    int kernelRadiusX = ( kernel.size[0] - 1 ) / 2;
-    int kernelRadiusY = ( kernel.size[1] - 1 ) / 2;
-
-    cv::Mat paddedInput;
-    cv::copyMakeBorder(input, paddedInput, kernelRadiusX, kernelRadiusX, kernelRadiusY, kernelRadiusY, cv::BORDER_REPLICATE);
-
-    // now we can do the convolution
-    for ( int i = 0; i < input.rows; i++ ) {
-        for( int j = 0; j < input.cols; j++ ) {
-            double sum = 0.0;
-
-            for( int m = -kernelRadiusX; m <= kernelRadiusX; m++ ) {
-                for( int n = -kernelRadiusY; n <= kernelRadiusY; n++ ) {
-                    // find the correct indices we are using
-                    int imagex = i + m + kernelRadiusX;
-                    int imagey = j + n + kernelRadiusY;
-                    int kernelx = m + kernelRadiusX;
-                    int kernely = n + kernelRadiusY;
-
-                    // get the values from the padded image and the kernel
-                    int imageval = ( int ) paddedInput.at<uchar>( imagex, imagey );
-                    double kernalval = kernel.at<double>( kernelx, kernely );
-
-                    // do the multiplication
-                    sum += imageval * kernalval;
-                }
-            }
-            // set the output value as the sum of the convolution
-            unscaledOutput[i][j] = sum;
-        }
-    }
-
-    // scale the convolution by a ratio of max-min
-    double min = 999999;
-    double max = 0;
-    for ( int i = 0; i < input.rows; i++ ) {
-        for( int j = 0; j < input.cols; j++ ) {
-            if(unscaledOutput[i][j] > max) {
-                max = unscaledOutput[i][j];
-            }
-            if(unscaledOutput[i][j] < min) {
-                min = unscaledOutput[i][j];
-            }
-        }
-    }
-
-    for ( int i = 0; i < input.rows; i++ ) {
-        for( int j = 0; j < input.cols; j++ ) {
-            output.at<uchar>(i, j) = (255)/(max-min)*(unscaledOutput[i][j] - max);
-        }
-    }
-}
-
-
-// TODO
-void sobelEdges(Mat input, Mat &magnitude) {
-    cv::Mat gradientX, gradientY;
-    gradientX.create(input.size(), input.type());
-    gradientY.create(input.size(), input.type());
-
-    magnitude.create(input.size(), input.type());
-
-    // values are flipped 180 because the convolve function is actually correlation??
-    float xvalues[] = {-1,0,1,-2,0,2,-1,0,1};
-    cv::Mat kernelX(3,3, CV_32F, xvalues);
-
-    float yvalues[] = {1,-2,-1,0,0,0,1,2,1};
-    cv::Mat kernelY(3,3, CV_32F, yvalues);
-
-    // find dx and dy
-    convolve(input, kernelX, gradientX);
-    convolve(input, kernelY, gradientY);
-
-    // imshow("gradx", gradientX);
-    // imshow("grady", gradientY);
-
-    // calculate the magnitude
-    double unscaledMag[input.rows][input.cols];
-
-    for (int i = 0; i < input.rows; i++) {
-      for (int j = 0; j < input.cols; j++) {
-        unscaledMag[i][j] = sqrt( (gradientX.at<uchar>(i, j) * gradientX.at<uchar>(i, j)) + (gradientY.at<uchar>(i, j) * gradientY.at<uchar>(i, j)) );
-      }
-    }
-
-    // scale the magnitude
-    double min = 999999;
-    double max = 0;
-    for ( int i = 0; i < input.rows; i++ ) {
-        for( int j = 0; j < input.cols; j++ ) {
-            if(unscaledMag[i][j] > max) {
-                max = unscaledMag[i][j];
-            }
-            if(unscaledMag[i][j] < min) {
-                min = unscaledMag[i][j];
-            }
-        }
-    }
-
-    for ( int i = 0; i < input.rows; i++ ) {
-        for( int j = 0; j < input.cols; j++ ) {
-            magnitude.at<uchar>(i, j) = (255)/(max-min)*(unscaledMag[i][j] - max);
-        }
-    }
-
-    return;
-}
-*/
