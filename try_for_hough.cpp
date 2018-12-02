@@ -19,7 +19,8 @@ CascadeClassifier cascade;
 void combineDetections(vector<Rect> viola_dartboards, int a, int b, int r,Mat &frame ) {
     //Point center(a,b);
     for (int detect=0; detect<viola_dartboards.size();detect++){
-      if ((viola_dartboards[detect].x<a && a<(viola_dartboards[detect].x + viola_dartboards[detect].width) && viola_dartboards[detect].y<b && b<(viola_dartboards[detect].y + viola_dartboards[detect].height)) && ((viola_dartboards[detect].width < (2.25*r) && viola_dartboards[detect].width > (1.75*r)))) 
+      bool circleInBox = (viola_dartboards[detect].x < a && a < (viola_dartboards[detect].x + viola_dartboards[detect].width) && viola_dartboards[detect].y < b && b < (viola_dartboards[detect].y + viola_dartboards[detect].height));
+      if (circleInBox || ((viola_dartboards[detect].width < (2*r) && viola_dartboards[detect].width > (1.75*r))))
       {
       rectangle(frame, Point(viola_dartboards[detect].x, viola_dartboards[detect].y), Point(viola_dartboards[detect].x +
         viola_dartboards[detect].width, viola_dartboards[detect].y + viola_dartboards[detect].height), Scalar( 0, 255, 0 ), 2);
@@ -121,7 +122,7 @@ void houghCircles(Mat thresh_mag,vector<Rect> viola_dartboards, Mat &frame) {
   for(int a=0; a<dim1; a++){
     for(int b=0; b<dim2;b++){
       for(int r=0;r<dim3;r++){
-        if(accumulator.at<float>(a,b,r)>=(max*0.48)){
+        if(accumulator.at<float>(a,b,r)>=(max*0.85)){
           thresh_accumulator.at<float>(a,b,r) =accumulator.at<float>(a,b,r);
           combineDetections(viola_dartboards,a,b,(r+min_radius), frame);
         }
@@ -151,7 +152,6 @@ void houghCircles(Mat thresh_mag,vector<Rect> viola_dartboards, Mat &frame) {
     }
   }
   imshow("hough2D",hough2D);
-  waitKey(0);
 }
 
 void violaJonesDetector(Mat src, vector<Rect> &viola_dartboards) {
@@ -188,7 +188,8 @@ int main( int argc, const char** argv )
   violaJonesDetector(src_gray, viola_dartboards);
   houghCircles(thresh_mag,viola_dartboards,frame);
 
-
+  imshow("detections", frame);
+  waitKey(0);
 
   //combineDetections();
 
