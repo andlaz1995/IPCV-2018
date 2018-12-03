@@ -301,7 +301,7 @@ int main( int argc, const char** argv )
   Rect D15(160,55,120,140);
   dart15.push_back(D15);
 
-  check_intersect(combined,dart15,frame);
+  // check_intersect(combined,dart0,frame);
 
 
 
