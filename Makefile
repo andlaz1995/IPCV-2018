@@ -1,14 +1,16 @@
-default: darts
+default: task3
 
-darts: darts.cpp
-	g++ darts.cpp `pkg-config --libs opencv` `pkg-config --cflags opencv`
+task1: task1.cpp
+	g++ task1.cpp `pkg-config --libs opencv` `pkg-config --cflags opencv`
 
-face: face.cpp
+task2: task2.cpp
 	g++ face.cpp `pkg-config --libs opencv` `pkg-config --cflags opencv`
 
-hough: try_for_hough.cpp
-	g++ try_for_hough.cpp `pkg-config --libs opencv` `pkg-config --cflags opencv`
+task3: task3.cpp
+	g++ task3.cpp `pkg-config --libs opencv` `pkg-config --cflags opencv`
 
+task4: task4.cpp
+	g++ task4.cpp `pkg-config --libs opencv` `pkg-config --cflags opencv`
 
 clean:
 	rm -f a.out
